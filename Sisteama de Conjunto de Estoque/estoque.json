@@ -1,0 +1,54 @@
+[
+  {
+    "Nome": "Armazém da Esquina",
+    "Produtos": [
+      {
+        "Nome": "Arroz",
+        "Quantidade": 10,
+        "Fornecedor": "Tio João",
+        "Preco": 3.55
+      },
+      {
+        "Nome": "Feijão",
+        "Quantidade": 15,
+        "Fornecedor": "Kicaldo",
+        "Preco": 3.45
+      },
+      {
+        "Nome": "Biscoito Maizena",
+        "Quantidade": 20,
+        "Fornecedor": "Piraquê",
+        "Preco": 3.45
+      }
+    ]
+  },
+  {
+    "Nome": "Papelaria",
+    "Produtos": [
+      {
+        "Nome": "Folha de Papel A4",
+        "Quantidade": 100,
+        "Fornecedor": "Chamequinho",
+        "Preco": 5
+      },
+      {
+        "Nome": "Caneta Azul",
+        "Quantidade": 50,
+        "Fornecedor": "Bic",
+        "Preco": 1.5
+      },
+      {
+        "Nome": "Caneta Vermelha",
+        "Quantidade": 30,
+        "Fornecedor": "Bic",
+        "Preco": 1.5
+      },
+      {
+        "Nome": "Papel de Embrulhar Presente",
+        "Quantidade": 15,
+        "Fornecedor": "Ki Festa",
+        "Preco": 1.15
+      }
+    ]
+  }
+]
