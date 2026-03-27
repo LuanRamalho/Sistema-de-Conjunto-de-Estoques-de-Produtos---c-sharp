@@ -1,36 +1,57 @@
 using System;
-using Microsoft.Data.Sqlite;
+using System.Collections.Generic;
 using System.IO;
+using System.Text.Json;
+using System.Text.Encodings.Web; 
+using System.Text.Unicode;
 
 namespace SistemaEstoque
 {
+    // Modelos de Dados (Sem IDs)
+    public class Produto
+    {
+        public string Nome { get; set; }
+        public int Quantidade { get; set; }
+        public string Fornecedor { get; set; }
+        public double Preco { get; set; }
+    }
+
+    public class Loja
+    {
+        public string Nome { get; set; }
+        public List<Produto> Produtos { get; set; } = new List<Produto>();
+    }
+
     public static class DatabaseHelper
     {
-        private const string DbName = "estoque_comercio.db";
-        public static string ConnectionString => $"Data Source={DbName}";
+        private const string FileName = "estoque.json";
+
+        public static List<Loja> CarregarDados()
+        {
+            if (!File.Exists(FileName)) return new List<Loja>();
+            
+            string json = File.ReadAllText(FileName);
+            return JsonSerializer.Deserialize<List<Loja>>(json) ?? new List<Loja>();
+        }
+
+        public static void SalvarDados(List<Loja> lojas)
+        {
+            var options = new JsonSerializerOptions 
+            { 
+                WriteIndented = true,
+                // Esta linha permite que caracteres acentuados (Latin1) sejam salvos normalmente
+                Encoder = JavaScriptEncoder.Create(UnicodeRanges.All) 
+            };
+            
+            string json = JsonSerializer.Serialize(lojas, options);
+            File.WriteAllText(FileName, json);
+        }
 
         public static void InitializeDatabase()
         {
-            using (var connection = new SqliteConnection(ConnectionString))
+            if (!File.Exists(FileName))
             {
-                connection.Open();
-                var command = connection.CreateCommand();
-                command.CommandText = @"
-                    CREATE TABLE IF NOT EXISTS Lojas (
-                        Id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        Nome TEXT NOT NULL
-                    );
-                    CREATE TABLE IF NOT EXISTS Produtos (
-                        Id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        LojaId INTEGER NOT NULL,
-                        Nome TEXT NOT NULL,
-                        Quantidade INTEGER NOT NULL,
-                        Fornecedor TEXT NOT NULL,
-                        Preco REAL NOT NULL,
-                        FOREIGN KEY(LojaId) REFERENCES Lojas(Id) ON DELETE CASCADE
-                    );
-                ";
-                command.ExecuteNonQuery();
+                SalvarDados(new List<Loja>());
             }
         }
     }
