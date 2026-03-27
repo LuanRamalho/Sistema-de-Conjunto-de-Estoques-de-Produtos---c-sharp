@@ -1,8 +1,8 @@
 using System;
-using System.Data;
+using System.Collections.Generic;
 using System.Drawing;
+using System.Linq;
 using System.Windows.Forms;
-using Microsoft.Data.Sqlite;
 
 namespace SistemaEstoque
 {
@@ -10,7 +10,7 @@ namespace SistemaEstoque
     {
         private TextBox txtNomeLoja;
         private DataGridView dgvLojas;
-        private int lojaSelecionadaId = 0;
+        private string nomeLojaOriginal = "";
 
         public MainForm()
         {
@@ -20,19 +20,16 @@ namespace SistemaEstoque
 
         private void ConfigurarInterface()
         {
-            // Configurações da Janela
-            this.Text = "Gerenciador de Comércio - Lojas";
+            this.Text = "Gerenciador de Comércio - Lojas (JSON)";
             this.Size = new Size(600, 500);
-            this.BackColor = Color.FromArgb(44, 62, 80); 
+            this.BackColor = Color.FromArgb(44, 62, 80);
             this.StartPosition = FormStartPosition.CenterScreen;
 
-            // Painel Superior
             Panel painelTopo = new Panel { Dock = DockStyle.Top, Height = 100, BackColor = Color.FromArgb(52, 73, 94) };
             
             Label lblNome = new Label { Text = "Nome da Loja:", ForeColor = Color.White, Location = new Point(20, 20), AutoSize = true, Font = new Font("Segoe UI", 10, FontStyle.Bold) };
             txtNomeLoja = new TextBox { Location = new Point(20, 45), Width = 250, Font = new Font("Segoe UI", 10) };
 
-            // Botões
             Button btnAdicionar = CriarBotao("Adiciona", Color.FromArgb(39, 174, 96), new Point(290, 40));
             btnAdicionar.Click += (s, e) => AdicionarLoja();
 
@@ -44,27 +41,26 @@ namespace SistemaEstoque
 
             painelTopo.Controls.AddRange(new Control[] { lblNome, txtNomeLoja, btnAdicionar, btnAtualizar, btnDeletar });
 
-            // Configuração da Tabela (DataGridView)
-            dgvLojas = new DataGridView();
-            dgvLojas.Dock = DockStyle.Fill;
-            dgvLojas.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
-            dgvLojas.AllowUserToAddRows = false;
-            dgvLojas.ReadOnly = true;
-            dgvLojas.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
-            dgvLojas.BackgroundColor = Color.FromArgb(236, 240, 241);
-            dgvLojas.BorderStyle = BorderStyle.None;
+            dgvLojas = new DataGridView
+            {
+                Dock = DockStyle.Fill,
+                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+                AllowUserToAddRows = false,
+                ReadOnly = true,
+                SelectionMode = DataGridViewSelectionMode.FullRowSelect,
+                BackgroundColor = Color.FromArgb(236, 240, 241),
+                BorderStyle = BorderStyle.None
+            };
 
-            // Determina a cor de fundo da célula clicada pelo usuário
             dgvLojas.DefaultCellStyle.SelectionBackColor = Color.LimeGreen;
             dgvLojas.DefaultCellStyle.SelectionForeColor = Color.Black;
 
-            // Eventos da Tabela
             dgvLojas.CellContentClick += DgvLojas_CellContentClick;
             dgvLojas.CellClick += (s, e) => {
                 if (e.RowIndex >= 0)
                 {
-                    lojaSelecionadaId = Convert.ToInt32(dgvLojas.Rows[e.RowIndex].Cells["Id"].Value);
-                    txtNomeLoja.Text = dgvLojas.Rows[e.RowIndex].Cells["Nome"].Value.ToString();
+                    nomeLojaOriginal = dgvLojas.Rows[e.RowIndex].Cells["Nome"].Value.ToString();
+                    txtNomeLoja.Text = nomeLojaOriginal;
                 }
             };
 
@@ -74,46 +70,28 @@ namespace SistemaEstoque
 
         private Button CriarBotao(string texto, Color cor, Point local)
         {
-            return new Button { 
-                Text = texto, 
-                BackColor = cor, 
-                ForeColor = Color.White, 
-                FlatStyle = FlatStyle.Flat, 
-                Location = local, 
-                Size = new Size(80, 35), 
-                Font = new Font("Segoe UI", 9, FontStyle.Bold), 
-                Cursor = Cursors.Hand 
-            };
+            return new Button { Text = texto, BackColor = cor, ForeColor = Color.White, FlatStyle = FlatStyle.Flat, Location = local, Size = new Size(80, 35), Font = new Font("Segoe UI", 9, FontStyle.Bold), Cursor = Cursors.Hand };
         }
 
         private void CarregarLojas()
         {
-            using (var conn = new SqliteConnection(DatabaseHelper.ConnectionString))
+            var lojas = DatabaseHelper.CarregarDados();
+            dgvLojas.DataSource = null;
+            dgvLojas.Columns.Clear();
+            dgvLojas.DataSource = lojas.Select(l => new { l.Nome }).ToList();
+
+            DataGridViewLinkColumn linkCol = new DataGridViewLinkColumn
             {
-                conn.Open();
-                var cmd = new SqliteCommand("SELECT Id, Nome FROM Lojas", conn);
-                var dt = new DataTable();
-                dt.Load(cmd.ExecuteReader());
+                DataPropertyName = "Nome",
+                Name = "Nome",
+                HeaderText = "NOME DA LOJA (Clique para abrir)",
+                LinkColor = Color.Blue,
+                TrackVisitedState = false
+            };
+            dgvLojas.Columns.RemoveAt(0);
+            dgvLojas.Columns.Add(linkCol);
 
-                dgvLojas.DataSource = null;
-                dgvLojas.Columns.Clear();
-                dgvLojas.DataSource = dt;
-                dgvLojas.Columns["Id"].Visible = false;
-
-                // Coluna de Link para abrir o estoque
-                DataGridViewLinkColumn linkCol = new DataGridViewLinkColumn
-                {
-                    DataPropertyName = "Nome",
-                    Name = "Nome",
-                    HeaderText = "NOME DA LOJA (Clique para abrir o estoque)",
-                    LinkColor = Color.Blue,
-                    ActiveLinkColor = Color.Red,
-                    TrackVisitedState = false
-                };
-                dgvLojas.Columns.RemoveAt(1); 
-                dgvLojas.Columns.Add(linkCol);
-            }
-            lojaSelecionadaId = 0;
+            nomeLojaOriginal = "";
             txtNomeLoja.Clear();
         }
 
@@ -121,55 +99,45 @@ namespace SistemaEstoque
         {
             if (e.RowIndex >= 0 && dgvLojas.Columns[e.ColumnIndex] is DataGridViewLinkColumn)
             {
-                int id = Convert.ToInt32(dgvLojas.Rows[e.RowIndex].Cells["Id"].Value);
                 string nome = dgvLojas.Rows[e.RowIndex].Cells["Nome"].Value.ToString();
-                
-                StoreForm storeForm = new StoreForm(id, nome);
-                storeForm.ShowDialog(); 
-                CarregarLojas(); // Atualiza a lista ao voltar
+                StoreForm storeForm = new StoreForm(nome);
+                storeForm.ShowDialog();
+                CarregarLojas();
             }
         }
 
         private void AdicionarLoja()
         {
             if (string.IsNullOrWhiteSpace(txtNomeLoja.Text)) return;
-            using (var conn = new SqliteConnection(DatabaseHelper.ConnectionString))
-            {
-                conn.Open();
-                var cmd = new SqliteCommand("INSERT INTO Lojas (Nome) VALUES (@nome)", conn);
-                cmd.Parameters.AddWithValue("@nome", txtNomeLoja.Text);
-                cmd.ExecuteNonQuery();
-            }
+            var lojas = DatabaseHelper.CarregarDados();
+            if (lojas.Any(l => l.Nome == txtNomeLoja.Text)) return;
+
+            lojas.Add(new Loja { Nome = txtNomeLoja.Text });
+            DatabaseHelper.SalvarDados(lojas);
             CarregarLojas();
         }
 
         private void AtualizarLoja()
         {
-            if (lojaSelecionadaId == 0 || string.IsNullOrWhiteSpace(txtNomeLoja.Text)) return;
-            using (var conn = new SqliteConnection(DatabaseHelper.ConnectionString))
+            if (string.IsNullOrEmpty(nomeLojaOriginal) || string.IsNullOrWhiteSpace(txtNomeLoja.Text)) return;
+            var lojas = DatabaseHelper.CarregarDados();
+            var loja = lojas.FirstOrDefault(l => l.Nome == nomeLojaOriginal);
+            if (loja != null)
             {
-                conn.Open();
-                var cmd = new SqliteCommand("UPDATE Lojas SET Nome = @nome WHERE Id = @id", conn);
-                cmd.Parameters.AddWithValue("@nome", txtNomeLoja.Text);
-                cmd.Parameters.AddWithValue("@id", lojaSelecionadaId);
-                cmd.ExecuteNonQuery();
+                loja.Nome = txtNomeLoja.Text;
+                DatabaseHelper.SalvarDados(lojas);
+                CarregarLojas();
             }
-            CarregarLojas();
         }
 
         private void DeletarLoja()
         {
-            if (lojaSelecionadaId == 0) return;
-            var confirm = MessageBox.Show("Deseja excluir esta loja e todo o seu estoque?", "Confirmar", MessageBoxButtons.YesNo);
-            if (confirm == DialogResult.Yes)
+            if (string.IsNullOrEmpty(nomeLojaOriginal)) return;
+            if (MessageBox.Show("Excluir loja e estoque?", "Confirmar", MessageBoxButtons.YesNo) == DialogResult.Yes)
             {
-                using (var conn = new SqliteConnection(DatabaseHelper.ConnectionString))
-                {
-                    conn.Open();
-                    var cmd = new SqliteCommand("DELETE FROM Lojas WHERE Id = @id", conn);
-                    cmd.Parameters.AddWithValue("@id", lojaSelecionadaId);
-                    cmd.ExecuteNonQuery();
-                }
+                var lojas = DatabaseHelper.CarregarDados();
+                lojas.RemoveAll(l => l.Nome == nomeLojaOriginal);
+                DatabaseHelper.SalvarDados(lojas);
                 CarregarLojas();
             }
         }
